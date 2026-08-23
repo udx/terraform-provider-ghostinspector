@@ -69,7 +69,7 @@ func (r *SuiteResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 				Description: "Suite name.",
 			},
 			"suite_id": schema.StringAttribute{
-				Optional: true,
+				Optional:    true,
 				Description: "Existing suite ID to adopt on create. When set and the suite exists, it is adopted into state instead of created. When set and the suite does not exist, creation fails rather than creating a different suite.",
 				PlanModifiers: []planmodifier.String{
 					stringplanmodifier.RequiresReplace(),
@@ -82,12 +82,12 @@ func (r *SuiteResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			},
 			"description": schema.StringAttribute{
 				Optional: true, Computed: true,
-				Description:   "Suite description. Null leaves the API value unmanaged.",
+				Description:   "Suite description. Write-only: the Ghost Inspector API discards it on update and never returns it on read, so the configured value is kept in state. Null leaves it unmanaged.",
 				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 			},
 			"schedule": schema.SingleNestedAttribute{
 				Optional: true, Computed: true,
-				Description: "Suite run schedule. Null leaves the API value unmanaged.",
+				Description: "Suite run schedule. Write-only: the Ghost Inspector API discards it on update and never returns it on read, so the configured value is kept in state. Null leaves it unmanaged.",
 				PlanModifiers: []planmodifier.Object{
 					objectplanmodifier.UseStateForUnknown(),
 				},
@@ -152,7 +152,11 @@ func (m *SuiteResourceModel) fromAPI(s *gi.Suite) {
 	m.ID = types.StringValue(s.ID)
 	m.Name = types.StringValue(s.Name)
 	m.FolderID = stringOrNull(s.Folder)
-	m.Description = stringOrNull(s.Description)
+	// The suite update API silently discards description, so it never comes
+	// back on read. Keep the configured value in state (write-only).
+	if s.Description != "" {
+		m.Description = types.StringValue(s.Description)
+	}
 	m.Browser = stringOrNull(ptrStr(s.Browser))
 	m.Region = stringOrNull(ptrStr(s.Region))
 	m.UserAgent = stringOrNull(ptrStr(s.UserAgent))
@@ -165,7 +169,11 @@ func (m *SuiteResourceModel) fromAPI(s *gi.Suite) {
 	m.ScreenshotCompareEnabled = boolOrNull(s.ScreenshotCompareEnabled)
 	m.ScreenshotCompareThreshold = floatOrNull(s.ScreenshotCompareThreshold)
 	m.FailOnJavaScriptError = boolOrNull(s.FailOnJavaScriptError)
-	m.Schedule = scheduleObject(true, s.Schedule != nil, s.Schedule)
+	// The suite update API silently discards schedule, so it never comes back
+	// on read. Keep the configured value in state (write-only).
+	if s.Schedule != nil {
+		m.Schedule = scheduleObject(true, true, s.Schedule)
+	}
 }
 
 func ptrStr(s *string) string {
