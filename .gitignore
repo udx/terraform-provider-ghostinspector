@@ -1,0 +1,13 @@
+# Binaries and build output
+terraform-provider-ghostinspector
+dist/
+
+# Terraform working files
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.lock.hcl
+crash.log
+
+# OS noise
+.DS_Store
