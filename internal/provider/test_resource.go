@@ -108,7 +108,7 @@ func (r *TestResource) Schema(_ context.Context, _ resource.SchemaRequest, resp 
 			"start_url": schema.StringAttribute{
 				Optional: true, Computed: true,
 				Description:   "Start URL, may contain {{variables}}. Null leaves the API value unmanaged.",
-				PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+				PlanModifiers: []planmodifier.String{emptyStringIsNull(), stringplanmodifier.UseStateForUnknown()},
 			},
 			"import_only": schema.BoolAttribute{
 				Optional: true, Computed: true,
