@@ -260,15 +260,15 @@ func (r *SuiteVariablesResource) Update(ctx context.Context, req resource.Update
 }
 
 func (r *SuiteVariablesResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var state SuiteVariablesResourceModel
-	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	if err := r.push(ctx, state.SuiteID.ValueString(), nil); err != nil && !gi.NotFound(err) {
-		resp.Diagnostics.AddError("Clearing variables failed", err.Error())
-		return
-	}
+	// Removing this resource from configuration must not wipe the suite's
+	// variables: omitting variables from a configuration means "unmanaged",
+	// and a destroy that cleared the set would punish exactly that gesture.
+	// The variable set is left on the suite; clear it via the UI or by
+	// applying an empty variables list first.
+	resp.Diagnostics.AddWarning(
+		"Variables left in place",
+		"The ghostinspector_suite_variables resource was removed from state only; the variable set still exists on the suite. Clear it in the Ghost Inspector UI or apply an empty variables list before removal if that is what you want.",
+	)
 }
 
 func (r *SuiteVariablesResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {

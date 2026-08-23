@@ -26,6 +26,10 @@ resource "ghostinspector_suite_variables" "release" {
   - `value` (string, sensitive) - May contain `{{otherVariable}}` references.
   - `private` (bool, default false) - Mask the value in the UI and API.
 
+## Removal
+
+Removing this resource from configuration only removes it from state; the variable set is left on the suite. This matches the "omitting variables leaves them unmanaged" contract. To clear a suite's variables, apply an empty `variables = []` first.
+
 ## Import
 
 Import with the suite ID:

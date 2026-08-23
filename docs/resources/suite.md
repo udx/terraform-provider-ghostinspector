@@ -37,6 +37,10 @@ All settings are pushed as the suite's default test settings, inherited by tests
 
 - `id` - Ghost Inspector suite ID.
 
+## Deletion safety
+
+Destroying a suite is refused while it still contains tests (deleting a suite deletes its tests). Destroy the `ghostinspector_test` resources first.
+
 ## Import
 
 ```bash

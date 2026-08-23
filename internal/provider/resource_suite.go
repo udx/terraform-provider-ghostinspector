@@ -398,6 +398,23 @@ func (r *SuiteResource) Delete(ctx context.Context, req resource.DeleteRequest, 
 	if resp.Diagnostics.HasError() {
 		return
 	}
+	// Deleting a suite deletes its tests with it, so removal is refused while
+	// tests remain. Delete the ghostinspector_test resources first.
+	tests, err := r.client.ListSuiteTests(ctx, state.ID.ValueString())
+	if err != nil && !gi.NotFound(err) {
+		resp.Diagnostics.AddError("Suite contents lookup failed", err.Error())
+		return
+	}
+	if gi.NotFound(err) {
+		return
+	}
+	if len(tests) > 0 {
+		resp.Diagnostics.AddError(
+			"Suite is not empty",
+			fmt.Sprintf("Suite %q still contains %d test(s). Deleting a suite deletes its tests, so removal is refused. Delete the ghostinspector_test resources first.", state.Name.ValueString(), len(tests)),
+		)
+		return
+	}
 	if err := r.client.DeleteSuite(ctx, state.ID.ValueString()); err != nil && !gi.NotFound(err) {
 		resp.Diagnostics.AddError("Suite deletion failed", err.Error())
 		return
