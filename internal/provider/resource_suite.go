@@ -156,6 +156,8 @@ func (m *SuiteResourceModel) fromAPI(s *gi.Suite) {
 	// back on read. Keep the configured value in state (write-only).
 	if s.Description != "" {
 		m.Description = types.StringValue(s.Description)
+	} else if m.Description.IsUnknown() {
+		m.Description = types.StringNull()
 	}
 	m.Browser = stringOrNull(ptrStr(s.Browser))
 	m.Region = stringOrNull(ptrStr(s.Region))
@@ -173,6 +175,8 @@ func (m *SuiteResourceModel) fromAPI(s *gi.Suite) {
 	// on read. Keep the configured value in state (write-only).
 	if s.Schedule != nil {
 		m.Schedule = scheduleObject(true, true, s.Schedule)
+	} else if m.Schedule.IsUnknown() {
+		m.Schedule = types.ObjectNull(scheduleAttrTypes())
 	}
 }
 
