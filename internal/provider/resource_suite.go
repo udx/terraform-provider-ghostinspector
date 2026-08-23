@@ -38,6 +38,7 @@ type scheduleModel struct {
 // SuiteResourceModel is the state model.
 type SuiteResourceModel struct {
 	ID          types.String `tfsdk:"id"`
+	SuiteID     types.String `tfsdk:"suite_id"`
 	Name        types.String `tfsdk:"name"`
 	FolderID    types.String `tfsdk:"folder_id"`
 	Description types.String `tfsdk:"description"`
@@ -66,6 +67,13 @@ func (r *SuiteResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			"name": schema.StringAttribute{
 				Required:    true,
 				Description: "Suite name.",
+			},
+			"suite_id": schema.StringAttribute{
+				Optional: true,
+				Description: "Existing suite ID to adopt on create. When set and the suite exists, it is adopted into state instead of created. When set and the suite does not exist, creation fails rather than creating a different suite.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.RequiresReplace(),
+				},
 			},
 			"folder_id": schema.StringAttribute{
 				Optional: true, Computed: true,
@@ -198,6 +206,38 @@ func (r *SuiteResource) Create(ctx context.Context, req resource.CreateRequest, 
 	folderID := ""
 	if !plan.FolderID.IsNull() && !plan.FolderID.IsUnknown() {
 		folderID = plan.FolderID.ValueString()
+	}
+
+	// Adopt-by-ID fast path: the configuration pins the exact suite to manage.
+	if !plan.SuiteID.IsNull() && !plan.SuiteID.IsUnknown() && plan.SuiteID.ValueString() != "" {
+		targetID := plan.SuiteID.ValueString()
+		suite, err := r.client.GetSuite(ctx, targetID)
+		if gi.NotFound(err) {
+			resp.Diagnostics.AddError(
+				"Suite not found",
+				fmt.Sprintf("suite_id %q was configured for adoption but no such suite exists. Creation is refused so a differently-named suite is not created by accident.", targetID),
+			)
+			return
+		}
+		if err != nil {
+			resp.Diagnostics.AddError("Suite lookup failed", err.Error())
+			return
+		}
+		resp.Diagnostics.AddWarning(
+			"Adopted existing suite",
+			fmt.Sprintf("Suite %q (%s) was adopted into state by suite_id.", suite.Name, suite.ID),
+		)
+		if err := r.pushSettings(ctx, suite.ID, &plan); err != nil {
+			resp.Diagnostics.AddError("Suite settings sync failed", err.Error())
+			return
+		}
+		if err := r.refresh(ctx, suite.ID, &plan); err != nil {
+			resp.Diagnostics.AddError("Suite read failed", err.Error())
+			return
+		}
+		plan.SuiteID = types.StringValue(suite.ID)
+		resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
+		return
 	}
 
 	var suite *gi.Suite

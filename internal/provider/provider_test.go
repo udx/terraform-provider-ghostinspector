@@ -403,3 +403,83 @@ resource "ghostinspector_test" "parent" {
 }
 `, folder, suite, module, parent, assertText, final_delay)
 }
+
+// TestAccSuite_adoptByID pins an existing suite by suite_id: the suite must be
+// adopted (not recreated) and settings must reconcile in place.
+func TestAccSuite_adoptByID(t *testing.T) {
+	folder := "terraform-provider-ghostinspector-acc"
+	suite := uniqueName("tf-acc-adopt")
+
+	client := testAccClient(t)
+	ctx := context.Background()
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		CheckDestroy:             testAccCheckSuitesDestroyed,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccSuiteOnlyConfig(folder, suite),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttrSet("ghostinspector_suite.test", "id"),
+				),
+			},
+			{
+				// Re-declare the same suite pinned by suite_id in a second resource:
+				// it must adopt rather than create a duplicate.
+				Config: testAccSuiteAdoptByIDConfig(folder, suite),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					func(s *terraform.State) error {
+						original := s.RootModule().Resources["ghostinspector_suite.test"]
+						adopted := s.RootModule().Resources["ghostinspector_suite.adopted"]
+						if original == nil || adopted == nil {
+							return fmt.Errorf("expected both suite resources in state")
+						}
+						if original.Primary.ID != adopted.Primary.ID {
+							return fmt.Errorf("adopted ID %s != original ID %s (would have duplicated the suite)", adopted.Primary.ID, original.Primary.ID)
+						}
+						// exactly one suite with this name must exist
+						found, err := client.FindSuiteByName(ctx, suite)
+						if err != nil || found == nil {
+							return fmt.Errorf("suite lookup failed: %v", err)
+						}
+						if found.ID != original.Primary.ID {
+							return fmt.Errorf("live suite %s does not match state %s", found.ID, original.Primary.ID)
+						}
+						return nil
+					},
+					resource.TestCheckResourceAttr("ghostinspector_suite.adopted", "browser", "firefox"),
+				),
+			},
+		},
+	})
+}
+
+func testAccSuiteAdoptByIDConfig(folder, suite string) string {
+	return fmt.Sprintf(`
+terraform {
+  required_providers {
+    ghostinspector = {
+      source = "udx/ghostinspector"
+    }
+  }
+}
+
+provider "ghostinspector" {}
+
+resource "ghostinspector_folder" "test" {
+  name = %[1]q
+}
+
+resource "ghostinspector_suite" "test" {
+  name      = %[2]q
+  folder_id = ghostinspector_folder.test.id
+}
+
+resource "ghostinspector_suite" "adopted" {
+  name     = %[2]q
+  suite_id = ghostinspector_suite.test.id
+  browser  = "firefox"
+}
+`, folder, suite)
+}

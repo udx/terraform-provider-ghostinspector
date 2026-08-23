@@ -25,6 +25,7 @@ resource "ghostinspector_suite" "release" {
 ## Argument reference
 
 - `name` (string, required) - Suite name. Used for adopt-by-name matching on create.
+- `suite_id` (string) - Existing suite ID to adopt on create. When set and the suite exists, it is adopted instead of created; when set and missing, creation fails rather than creating a different suite. Changing it replaces the resource.
 - `folder_id` (string) - Owning folder. Folderless suites are supported.
 - `description` (string) - Suite description.
 - `schedule` (object) - `enabled`, `interval` (for example `daily`), `time` (for example `08:00`).

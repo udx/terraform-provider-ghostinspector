@@ -49,7 +49,7 @@ This provider models the API honestly:
 - **Steps are managed state.** Read normalizes the API's step shapes (string targets vs selector-candidate arrays, empty vs absent fields), so `plan` only shows real changes.
 - **Step changes replace the test.** The API only supports delete + re-import, so that is what a step change does: export, overlay your managed fields, delete, re-import, with a best-effort restore if the replacement import fails. The replacement gets a new test ID; run history stays with the removed test (an API limitation no tool can avoid).
 - **Module wiring survives replacement.** Parent tests reference shared modules as `value = ghostinspector_test.login.id` inside an `execute` step. When a module is replaced, the graph sees the new ID and re-imports the parents with updated references. No dangling `execute` steps, ever.
-- **Existing suites adopt without churn.** On create, folders, suites, and tests are matched by name: if the object already exists it is adopted into state and only drift is corrected. You do not need 37 `terraform import` commands to start managing a live suite.
+- **Existing suites adopt without churn.** On create, folders, suites, and tests are matched by name (or pinned by `suite_id` on the suite resource): if the object already exists it is adopted into state and only drift is corrected. You do not need 37 `terraform import` commands to start managing a live suite.
 - **Private values stay private.** Private suite variables are masked by the API on read; the provider carries the configured value in state instead of showing perpetual diffs. Private step flags (`private = true` on a password `assign`) are modeled and preserved.
 
 ## Resources and data sources
