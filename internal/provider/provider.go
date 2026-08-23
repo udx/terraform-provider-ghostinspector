@@ -60,7 +60,7 @@ func (p *GhostInspectorProvider) Configure(ctx context.Context, req provider.Con
 	}
 
 	apiKey := os.Getenv("GHOSTINSPECTOR_API_KEY")
-	if !config.APIKey.IsNull() && !config.APIKey.IsUnknown() {
+	if !config.APIKey.IsNull() && !config.APIKey.IsUnknown() && config.APIKey.ValueString() != "" {
 		apiKey = config.APIKey.ValueString()
 	}
 	if apiKey == "" {
