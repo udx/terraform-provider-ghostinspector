@@ -325,7 +325,13 @@ func (m *TestResourceModel) fromAPI(t *gi.Test) {
 	m.Browser = stringOrNull(ptrStr(t.Browser))
 	m.Region = stringOrNull(ptrStr(t.Region))
 	m.UserAgent = stringOrNull(ptrStr(t.UserAgent))
-	m.Geolocation = stringOrNull(ptrStr(t.Geolocation))
+	// The test update API silently discards geolocation, so it never comes
+	// back on read. Keep the configured value in state (write-only).
+	if g := ptrStr(t.Geolocation); g != "" {
+		m.Geolocation = types.StringValue(g)
+	} else if m.Geolocation.IsUnknown() {
+		m.Geolocation = types.StringNull()
+	}
 	m.MaxWaitDelay = intOrNull(t.MaxWaitDelay)
 	m.MaxAjaxDelay = intOrNull(t.MaxAjaxDelay)
 	m.GlobalStepDelay = intOrNull(t.GlobalStepDelay)

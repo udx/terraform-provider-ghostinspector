@@ -40,7 +40,7 @@ resource "ghostinspector_test" "checkout" {
 - `start_url` (string) - Start URL; may contain `{{variables}}`.
 - `import_only` (bool) - Mark as an import-only shared module.
 - `steps` (list of objects) - Managed steps. Null leaves steps unmanaged. Changing steps replaces the test.
-- Settings attributes (`browser`, `region`, `user_agent`, `geolocation`, `max_wait_delay`, `max_ajax_delay`, `global_step_delay`, `final_delay`, `auto_retry`, `screenshot_compare_enabled`, `screenshot_compare_threshold`, `fail_on_javascript_error`) - null leaves the API-side value unmanaged (inherited from the suite).
+- Settings attributes (`browser`, `region`, `user_agent`, `geolocation`, `max_wait_delay`, `max_ajax_delay`, `global_step_delay`, `final_delay`, `auto_retry`, `screenshot_compare_enabled`, `screenshot_compare_threshold`, `fail_on_javascript_error`) - null leaves the API-side value unmanaged (inherited from the suite). `geolocation` is write-only: the API discards it on update and never returns it on read, so the configured value is kept in state.
 
 ### Step object
 
