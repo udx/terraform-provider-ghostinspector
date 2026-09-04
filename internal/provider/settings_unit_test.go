@@ -58,10 +58,10 @@ func TestTestFromAPI_geolocationWriteOnly(t *testing.T) {
 	}
 
 	apiGeo := "51.5074,-0.1278"
- 	m = TestResourceModel{}
- 	m.Geolocation = types.StringValue(geo)
- 	m.fromAPI(&gi.Test{ID: "t1", Name: "test", Geolocation: &apiGeo})
- 	if got := m.Geolocation.ValueString(); got != apiGeo {
- 		t.Fatalf("API geolocation ignored: got %q, want %q", got, apiGeo)
- 	}
+	m = TestResourceModel{}
+	m.Geolocation = types.StringValue(geo)
+	m.fromAPI(&gi.Test{ID: "t1", Name: "test", Geolocation: &apiGeo})
+	if got := m.Geolocation.ValueString(); got != apiGeo {
+		t.Fatalf("API geolocation ignored: got %q, want %q", got, apiGeo)
+	}
 }
