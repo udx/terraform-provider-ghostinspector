@@ -29,7 +29,7 @@ resource "ghostinspector_suite" "release" {
 - `folder_id` (string) - Owning folder. Folderless suites are supported.
 - `description` (string) - Suite description. Write-only: the API discards it on update and never returns it on read, so the configured value is kept in state.
 - `schedule` (object) - `enabled`, `interval` (for example `daily`), `time` (for example `08:00`). Write-only for the same reason.
-- Settings attributes (`browser`, `region`, `user_agent`, `geolocation`, `max_wait_delay`, `max_ajax_delay`, `global_step_delay`, `final_delay`, `auto_retry`, `screenshot_compare_enabled`, `screenshot_compare_threshold`, `fail_on_javascript_error`) - null leaves the API-side value unmanaged.
+- Settings attributes (`browser`, `region`, `user_agent`, `geolocation`, `max_wait_delay`, `max_ajax_delay`, `global_step_delay`, `final_delay`, `auto_retry`, `screenshot_compare_enabled`, `screenshot_compare_threshold`, `fail_on_javascript_error`) - null leaves the API-side value unmanaged. `geolocation` is write-only: the API discards it on update and never returns it on read, so the configured value is kept in state.
 
 All settings are pushed as the suite's default test settings, inherited by tests that do not override them.
 

@@ -162,7 +162,13 @@ func (m *SuiteResourceModel) fromAPI(s *gi.Suite) {
 	m.Browser = stringOrNull(ptrStr(s.Browser))
 	m.Region = stringOrNull(ptrStr(s.Region))
 	m.UserAgent = stringOrNull(ptrStr(s.UserAgent))
-	m.Geolocation = stringOrNull(ptrStr(s.Geolocation))
+	// The suite update API silently discards geolocation, so it never comes
+	// back on read. Keep the configured value in state (write-only).
+	if g := ptrStr(s.Geolocation); g != "" {
+		m.Geolocation = types.StringValue(g)
+	} else if m.Geolocation.IsUnknown() {
+		m.Geolocation = types.StringNull()
+	}
 	m.MaxWaitDelay = intOrNull(s.MaxWaitDelay)
 	m.MaxAjaxDelay = intOrNull(s.MaxAjaxDelay)
 	m.GlobalStepDelay = intOrNull(s.GlobalStepDelay)

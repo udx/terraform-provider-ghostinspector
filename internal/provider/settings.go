@@ -49,7 +49,7 @@ func settingsAttributes() map[string]schema.Attribute {
 		},
 		"geolocation": schema.StringAttribute{
 			Optional: true, Computed: true,
-			Description:   "Geolocation override. Null leaves the API value unmanaged.",
+			Description:   "Geolocation override. Write-only: the Ghost Inspector API discards it on update and never returns it on read, so the configured value is kept in state. Null leaves it unmanaged.",
 			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 		},
 		"max_wait_delay": schema.Int64Attribute{
