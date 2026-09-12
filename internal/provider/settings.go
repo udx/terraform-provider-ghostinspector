@@ -91,7 +91,7 @@ func settingsAttributes() map[string]schema.Attribute {
 		},
 		"screenshot_target": schema.StringAttribute{
 			Optional: true, Computed: true,
-			Description:   "CSS or XPath selector; the final screenshot captures only this element instead of the whole page. Null leaves the API value unmanaged. An empty string explicitly clears the selector API-side (whole-page capture resumes); the API stores and returns the empty string.",
+			Description:   "CSS selector; the final screenshot captures only this element instead of the whole page. Null leaves the API value unmanaged. An empty string explicitly clears the selector API-side (whole-page capture resumes); the API stores and returns the empty string.",
 			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
 		},
 		"screenshot_exclusions": schema.StringAttribute{
