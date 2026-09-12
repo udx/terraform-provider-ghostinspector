@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/udx/terraform-provider-ghostinspector/internal/gi"
@@ -110,8 +111,9 @@ func (r *SuiteResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 			},
 			"max_concurrent_tests": schema.Int64Attribute{
 				Optional: true, Computed: true,
-				Description:   "Maximum number of tests from this suite that run in parallel (0 is unlimited). Null leaves the API value unmanaged.",
+				Description:   "Maximum number of tests from this suite that run in parallel (0 is unlimited). Null leaves the API value unmanaged. Must be zero or greater.",
 				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+				Validators:    []validator.Int64{nonNegativeInt64()},
 			},
 		}),
 	}
@@ -155,6 +157,17 @@ func stringOrNull(s string) types.String {
 	return types.StringValue(s)
 }
 
+// strPtrOrNull maps a string pointer verbatim, preserving empty strings. The
+// Ghost Inspector API stores an empty screenshot selector as an explicit
+// clear (whole-page capture), distinct from an absent key, so "" must
+// round-trip rather than collapse to null.
+func strPtrOrNull(s *string) types.String {
+	if s == nil {
+		return types.StringNull()
+	}
+	return types.StringValue(*s)
+}
+
 func (m *SuiteResourceModel) fromAPI(s *gi.Suite) {
 	m.ID = types.StringValue(s.ID)
 	m.Name = types.StringValue(s.Name)
@@ -183,8 +196,8 @@ func (m *SuiteResourceModel) fromAPI(s *gi.Suite) {
 	m.AutoRetry = boolOrNull(s.AutoRetry)
 	m.ScreenshotCompareEnabled = boolOrNull(s.ScreenshotCompareEnabled)
 	m.ScreenshotCompareThreshold = floatOrNull(s.ScreenshotCompareThreshold)
-	m.ScreenshotTarget = stringOrNull(ptrStr(s.ScreenshotTarget))
-	m.ScreenshotExclusions = stringOrNull(ptrStr(s.ScreenshotExclusions))
+	m.ScreenshotTarget = strPtrOrNull(s.ScreenshotTarget)
+	m.ScreenshotExclusions = strPtrOrNull(s.ScreenshotExclusions)
 	m.FailOnJavaScriptError = boolOrNull(s.FailOnJavaScriptError)
 	m.MaxConcurrentTests = intOrNull(s.MaxConcurrentTests)
 	// The suite update API silently discards schedule, so it never comes back

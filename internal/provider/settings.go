@@ -7,7 +7,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -92,15 +91,13 @@ func settingsAttributes() map[string]schema.Attribute {
 		},
 		"screenshot_target": schema.StringAttribute{
 			Optional: true, Computed: true,
-			Description:   "CSS or XPath selector; the final screenshot captures only this element instead of the whole page. Null leaves the API value unmanaged. Must not be empty: the API treats empty and absent identically, so an empty string would read back as null and fail apply; omit the attribute instead.",
+			Description:   "CSS or XPath selector; the final screenshot captures only this element instead of the whole page. Null leaves the API value unmanaged. An empty string explicitly clears the selector API-side (whole-page capture resumes); the API stores and returns the empty string.",
 			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-			Validators:    []validator.String{nonEmptyString()},
 		},
 		"screenshot_exclusions": schema.StringAttribute{
 			Optional: true, Computed: true,
-			Description:   "Comma-separated CSS selectors hidden before the final screenshot is taken. Null leaves the API value unmanaged. Must not be empty: the API treats empty and absent identically, so an empty string would read back as null and fail apply; omit the attribute instead.",
+			Description:   "Comma-separated CSS selectors hidden before the final screenshot is taken. Null leaves the API value unmanaged. An empty string explicitly clears the exclusions API-side; the API stores and returns the empty string.",
 			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
-			Validators:    []validator.String{nonEmptyString()},
 		},
 		"fail_on_javascript_error": schema.BoolAttribute{
 			Optional: true, Computed: true,

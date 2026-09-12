@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
@@ -122,6 +123,19 @@ func TestSettingsAPIFields_screenshotFields(t *testing.T) {
 	if _, ok := fields["screenshotExclusions"]; ok {
 		t.Fatalf("null screenshotExclusions should be omitted, got %v", fields["screenshotExclusions"])
 	}
+
+	// Empty string is an explicit clear and must be posted: the API stores ""
+	// (whole-page capture), distinct from an absent key.
+	m = settingsModel{}
+	m.ScreenshotTarget = types.StringValue("")
+	m.ScreenshotExclusions = types.StringValue("")
+	fields = m.apiFields()
+	if got, ok := fields["screenshotTarget"]; !ok || got != "" {
+		t.Fatalf("empty screenshotTarget should be posted as an explicit clear, got %v (present=%v)", got, ok)
+	}
+	if got, ok := fields["screenshotExclusions"]; !ok || got != "" {
+		t.Fatalf("empty screenshotExclusions should be posted as an explicit clear, got %v (present=%v)", got, ok)
+	}
 }
 
 func TestSuiteFromAPI_screenshotFields(t *testing.T) {
@@ -134,6 +148,17 @@ func TestSuiteFromAPI_screenshotFields(t *testing.T) {
 	}
 	if got := m.ScreenshotExclusions.ValueString(); got != exclusions {
 		t.Fatalf("screenshotExclusions not mapped: got %q, want %q", got, exclusions)
+	}
+
+	// An API-stored empty string (explicit clear) round-trips verbatim.
+	empty := ""
+	m = SuiteResourceModel{}
+	m.fromAPI(&gi.Suite{ID: "s1", Name: "suite", ScreenshotTarget: &empty})
+	if m.ScreenshotTarget.IsNull() {
+		t.Fatal("empty screenshotTarget collapsed to null; explicit clear would not survive a read")
+	}
+	if got := m.ScreenshotTarget.ValueString(); got != "" {
+		t.Fatalf("empty screenshotTarget changed: got %q", got)
 	}
 
 	m = SuiteResourceModel{}
@@ -156,6 +181,17 @@ func TestTestFromAPI_screenshotFields(t *testing.T) {
 		t.Fatalf("screenshotExclusions not mapped: got %q, want %q", got, exclusions)
 	}
 
+	// An API-stored empty string (explicit clear) round-trips verbatim.
+	empty := ""
+	m = TestResourceModel{}
+	m.fromAPI(&gi.Test{ID: "t1", Name: "test", ScreenshotTarget: &empty})
+	if m.ScreenshotTarget.IsNull() {
+		t.Fatal("empty screenshotTarget collapsed to null; explicit clear would not survive a read")
+	}
+	if got := m.ScreenshotTarget.ValueString(); got != "" {
+		t.Fatalf("empty screenshotTarget changed: got %q", got)
+	}
+
 	m = TestResourceModel{}
 	m.ScreenshotTarget = types.StringUnknown()
 	m.fromAPI(&gi.Test{ID: "t1", Name: "test"})
@@ -164,43 +200,38 @@ func TestTestFromAPI_screenshotFields(t *testing.T) {
 	}
 }
 
-// An empty screenshot selector is rejected at plan time: the API treats empty
-// and absent identically, so posting "" would come back as null and fail
-// apply with "inconsistent result after apply". (Collapsing "" to null in a
-// plan modifier is not possible - core rejects a planned value that differs
-// from a configured one; verified against both terraform and tofu.)
-func TestSettingsAttributes_screenshotRejectEmpty(t *testing.T) {
-	attrs := settingsAttributes()
-	for _, name := range []string{"screenshot_target", "screenshot_exclusions"} {
-		attr, ok := attrs[name].(schema.StringAttribute)
-		if !ok {
-			t.Fatalf("%s is not a StringAttribute", name)
-		}
-		if len(attr.Validators) == 0 {
-			t.Fatalf("%s has no validators; an empty string would break apply", name)
-		}
+// maxConcurrentTests rejects negative values at plan time: the API stores a
+// negative number as-is instead of rejecting it (verified live), which would
+// surface as silent misbehavior at run time. 0 means unlimited.
+func TestSuiteSchema_maxConcurrentTestsRejectsNegative(t *testing.T) {
+	var schemaResp resource.SchemaResponse
+	(&SuiteResource{}).Schema(context.Background(), resource.SchemaRequest{}, &schemaResp)
+	attr, ok := schemaResp.Schema.Attributes["max_concurrent_tests"].(schema.Int64Attribute)
+	if !ok {
+		t.Fatal("max_concurrent_tests is not an Int64Attribute")
+	}
+	if len(attr.Validators) == 0 {
+		t.Fatal("max_concurrent_tests has no validators; a negative value would be posted to the API")
+	}
 
-		var emptyDiags, valueDiags int
+	for _, tc := range []struct {
+		value     int64
+		wantError bool
+	}{{-1, true}, {0, false}, {1, false}} {
+		var errCount int
 		for _, v := range attr.Validators {
-			empty := &validator.StringResponse{}
-			v.ValidateString(context.Background(), validator.StringRequest{
-				Path:        path.Root(name),
-				ConfigValue: types.StringValue(""),
-			}, empty)
-			emptyDiags += empty.Diagnostics.ErrorsCount()
-
-			set := &validator.StringResponse{}
-			v.ValidateString(context.Background(), validator.StringRequest{
-				Path:        path.Root(name),
-				ConfigValue: types.StringValue(".hero"),
-			}, set)
-			valueDiags += set.Diagnostics.ErrorsCount()
+			resp := &validator.Int64Response{}
+			v.ValidateInt64(context.Background(), validator.Int64Request{
+				Path:        path.Root("max_concurrent_tests"),
+				ConfigValue: types.Int64Value(tc.value),
+			}, resp)
+			errCount += resp.Diagnostics.ErrorsCount()
 		}
-		if emptyDiags == 0 {
-			t.Fatalf("%s: empty string should fail validation", name)
+		if tc.wantError && errCount == 0 {
+			t.Fatalf("max_concurrent_tests=%d should fail validation", tc.value)
 		}
-		if valueDiags != 0 {
-			t.Fatalf("%s: non-empty selector should pass validation", name)
+		if !tc.wantError && errCount != 0 {
+			t.Fatalf("max_concurrent_tests=%d should pass validation", tc.value)
 		}
 	}
 }

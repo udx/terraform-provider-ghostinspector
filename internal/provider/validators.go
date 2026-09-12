@@ -6,34 +6,33 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 )
 
-// nonEmptyString rejects a configured empty string. The Ghost Inspector API
-// treats absent and empty values identically, so an empty string would read
-// back as null and fail apply with "inconsistent result after apply". A
-// plan-time collapse to null is not possible: core rejects a planned value
-// that differs from a configured one.
-func nonEmptyString() validator.String {
-	return nonEmptyStringValidator{}
+// nonNegativeInt64 rejects negative values. Ghost Inspector documents 0 as
+// "unlimited" and positive values as the limit; the API stores a negative
+// value as-is instead of rejecting it, which would surface as silent
+// misbehavior at run time.
+func nonNegativeInt64() validator.Int64 {
+	return nonNegativeInt64Validator{}
 }
 
-type nonEmptyStringValidator struct{}
+type nonNegativeInt64Validator struct{}
 
-func (v nonEmptyStringValidator) Description(_ context.Context) string {
-	return "Rejects an empty string."
+func (v nonNegativeInt64Validator) Description(_ context.Context) string {
+	return "Value must be zero or greater."
 }
 
-func (v nonEmptyStringValidator) MarkdownDescription(_ context.Context) string {
-	return "Rejects an empty string."
+func (v nonNegativeInt64Validator) MarkdownDescription(_ context.Context) string {
+	return "Value must be zero or greater."
 }
 
-func (v nonEmptyStringValidator) ValidateString(_ context.Context, req validator.StringRequest, resp *validator.StringResponse) {
+func (v nonNegativeInt64Validator) ValidateInt64(_ context.Context, req validator.Int64Request, resp *validator.Int64Response) {
 	if req.ConfigValue.IsNull() || req.ConfigValue.IsUnknown() {
 		return
 	}
-	if req.ConfigValue.ValueString() == "" {
+	if req.ConfigValue.ValueInt64() < 0 {
 		resp.Diagnostics.AddAttributeError(
 			req.Path,
-			"Empty string not allowed",
-			"The Ghost Inspector API treats empty and absent values identically, so an empty string would read back as null and fail apply. Omit the attribute to leave the API-side value unmanaged.",
+			"Negative value not allowed",
+			"The value must be 0 (unlimited) or a positive limit. Omit the attribute to leave the API-side value unmanaged.",
 		)
 	}
 }

@@ -339,8 +339,8 @@ func (m *TestResourceModel) fromAPI(t *gi.Test) {
 	m.AutoRetry = boolOrNull(t.AutoRetry)
 	m.ScreenshotCompareEnabled = boolOrNull(t.ScreenshotCompareEnabled)
 	m.ScreenshotCompareThreshold = floatOrNull(t.ScreenshotCompareThreshold)
-	m.ScreenshotTarget = stringOrNull(ptrStr(t.ScreenshotTarget))
-	m.ScreenshotExclusions = stringOrNull(ptrStr(t.ScreenshotExclusions))
+	m.ScreenshotTarget = strPtrOrNull(t.ScreenshotTarget)
+	m.ScreenshotExclusions = strPtrOrNull(t.ScreenshotExclusions)
 	m.FailOnJavaScriptError = boolOrNull(t.FailOnJavaScriptError)
 	m.Steps = flattenSteps(gi.CanonicalizeSteps(t.Steps))
 }

@@ -63,11 +63,10 @@ func TestAccSuite_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckSuitesDestroyed,
 		Steps: []resource.TestStep{
 			{
-				// Empty screenshot selectors are rejected at plan time: the API
-				// treats empty and absent identically, so posting "" would read
-				// back as null and fail with an inconsistent result.
-				Config:      testAccSuiteConfig(folder, suite, `"chrome"`, `15000`, `1`, "", ""),
-				ExpectError: regexp.MustCompile(`Empty string not allowed`),
+				// A negative concurrency limit is rejected at plan time: the API
+				// stores it as-is instead of rejecting it.
+				Config:      testAccSuiteConfig(folder, suite, `"chrome"`, `15000`, `-1`, ".hero", ".ad-banner"),
+				ExpectError: regexp.MustCompile(`Negative value not allowed`),
 			},
 			{
 				Config: testAccSuiteConfig(folder, suite, `"chrome"`, `15000`, `1`, ".hero", ".ad-banner"),
@@ -97,8 +96,17 @@ func TestAccSuite_basic(t *testing.T) {
 				),
 			},
 			{
+				// Empty strings are an explicit clear: the API stores "" and
+				// whole-page capture resumes, and state round-trips verbatim.
+				Config: testAccSuiteConfig(folder, suite, `"firefox"`, `20000`, `2`, "", ""),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("ghostinspector_suite.test", "screenshot_target", ""),
+					resource.TestCheckResourceAttr("ghostinspector_suite.test", "screenshot_exclusions", ""),
+				),
+			},
+			{
 				// Re-applying the same config produces an empty plan
-				Config:             testAccSuiteConfig(folder, suite, `"firefox"`, `20000`, `2`, ".content", ".ad-banner, .carousel"),
+				Config:             testAccSuiteConfig(folder, suite, `"firefox"`, `20000`, `2`, "", ""),
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: false,
 			},
