@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -37,12 +38,13 @@ type scheduleModel struct {
 
 // SuiteResourceModel is the state model.
 type SuiteResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	SuiteID     types.String `tfsdk:"suite_id"`
-	Name        types.String `tfsdk:"name"`
-	FolderID    types.String `tfsdk:"folder_id"`
-	Description types.String `tfsdk:"description"`
-	Schedule    types.Object `tfsdk:"schedule"`
+	ID                 types.String `tfsdk:"id"`
+	SuiteID            types.String `tfsdk:"suite_id"`
+	Name               types.String `tfsdk:"name"`
+	FolderID           types.String `tfsdk:"folder_id"`
+	Description        types.String `tfsdk:"description"`
+	Schedule           types.Object `tfsdk:"schedule"`
+	MaxConcurrentTests types.Int64  `tfsdk:"max_concurrent_tests"`
 	settingsModel
 }
 
@@ -105,6 +107,11 @@ func (r *SuiteResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 						Description: "Schedule time, such as 08:00.",
 					},
 				},
+			},
+			"max_concurrent_tests": schema.Int64Attribute{
+				Optional: true, Computed: true,
+				Description:   "Maximum number of tests from this suite that run in parallel (0 is unlimited). Null leaves the API value unmanaged.",
+				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
 			},
 		}),
 	}
@@ -176,7 +183,10 @@ func (m *SuiteResourceModel) fromAPI(s *gi.Suite) {
 	m.AutoRetry = boolOrNull(s.AutoRetry)
 	m.ScreenshotCompareEnabled = boolOrNull(s.ScreenshotCompareEnabled)
 	m.ScreenshotCompareThreshold = floatOrNull(s.ScreenshotCompareThreshold)
+	m.ScreenshotTarget = stringOrNull(ptrStr(s.ScreenshotTarget))
+	m.ScreenshotExclusions = stringOrNull(ptrStr(s.ScreenshotExclusions))
 	m.FailOnJavaScriptError = boolOrNull(s.FailOnJavaScriptError)
+	m.MaxConcurrentTests = intOrNull(s.MaxConcurrentTests)
 	// The suite update API silently discards schedule, so it never comes back
 	// on read. Keep the configured value in state (write-only).
 	if s.Schedule != nil {
@@ -331,6 +341,9 @@ func (r *SuiteResource) Create(ctx context.Context, req resource.CreateRequest, 
 func (r *SuiteResource) pushSettings(ctx context.Context, id string, plan *SuiteResourceModel) error {
 	fields := plan.settingsModel.apiFields()
 	fields["name"] = plan.Name.ValueString()
+	if !plan.MaxConcurrentTests.IsNull() && !plan.MaxConcurrentTests.IsUnknown() {
+		fields["maxConcurrentTests"] = plan.MaxConcurrentTests.ValueInt64()
+	}
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		fields["description"] = plan.Description.ValueString()
 	}

@@ -27,6 +27,8 @@ type settingsModel struct {
 	AutoRetry                  types.Bool    `tfsdk:"auto_retry"`
 	ScreenshotCompareEnabled   types.Bool    `tfsdk:"screenshot_compare_enabled"`
 	ScreenshotCompareThreshold types.Float64 `tfsdk:"screenshot_compare_threshold"`
+	ScreenshotTarget           types.String  `tfsdk:"screenshot_target"`
+	ScreenshotExclusions       types.String  `tfsdk:"screenshot_exclusions"`
 	FailOnJavaScriptError      types.Bool    `tfsdk:"fail_on_javascript_error"`
 }
 
@@ -87,6 +89,16 @@ func settingsAttributes() map[string]schema.Attribute {
 			Description:   "Allowed screenshot difference ratio (for example 0.1 for 10%). Null leaves the API value unmanaged.",
 			PlanModifiers: []planmodifier.Float64{float64planmodifier.UseStateForUnknown()},
 		},
+		"screenshot_target": schema.StringAttribute{
+			Optional: true, Computed: true,
+			Description:   "CSS or XPath selector; the final screenshot captures only this element instead of the whole page. Null leaves the API value unmanaged.",
+			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+		},
+		"screenshot_exclusions": schema.StringAttribute{
+			Optional: true, Computed: true,
+			Description:   "Comma-separated CSS selectors hidden before the final screenshot is taken. Null leaves the API value unmanaged.",
+			PlanModifiers: []planmodifier.String{stringplanmodifier.UseStateForUnknown()},
+		},
 		"fail_on_javascript_error": schema.BoolAttribute{
 			Optional: true, Computed: true,
 			Description:   "Fail the test when a JavaScript error is detected. Null leaves the API value unmanaged.",
@@ -130,6 +142,12 @@ func (m *settingsModel) apiFields() map[string]interface{} {
 	}
 	if !m.ScreenshotCompareThreshold.IsNull() && !m.ScreenshotCompareThreshold.IsUnknown() {
 		out["screenshotCompareThreshold"] = m.ScreenshotCompareThreshold.ValueFloat64()
+	}
+	if !m.ScreenshotTarget.IsNull() && !m.ScreenshotTarget.IsUnknown() {
+		out["screenshotTarget"] = m.ScreenshotTarget.ValueString()
+	}
+	if !m.ScreenshotExclusions.IsNull() && !m.ScreenshotExclusions.IsUnknown() {
+		out["screenshotExclusions"] = m.ScreenshotExclusions.ValueString()
 	}
 	if !m.FailOnJavaScriptError.IsNull() && !m.FailOnJavaScriptError.IsUnknown() {
 		out["failOnJavaScriptError"] = m.FailOnJavaScriptError.ValueBool()

@@ -62,11 +62,14 @@ func TestAccSuite_basic(t *testing.T) {
 		CheckDestroy:             testAccCheckSuitesDestroyed,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccSuiteConfig(folder, suite, `"chrome"`, `15000`),
+				Config: testAccSuiteConfig(folder, suite, `"chrome"`, `15000`, `1`, ".hero", ".ad-banner"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("ghostinspector_suite.test", "name", suite),
 					resource.TestCheckResourceAttr("ghostinspector_suite.test", "browser", "chrome"),
 					resource.TestCheckResourceAttr("ghostinspector_suite.test", "max_wait_delay", "15000"),
+					resource.TestCheckResourceAttr("ghostinspector_suite.test", "max_concurrent_tests", "1"),
+					resource.TestCheckResourceAttr("ghostinspector_suite.test", "screenshot_target", ".hero"),
+					resource.TestCheckResourceAttr("ghostinspector_suite.test", "screenshot_exclusions", ".ad-banner"),
 					resource.TestCheckResourceAttrSet("ghostinspector_suite.test", "id"),
 					resource.TestCheckResourceAttrPair(
 						"ghostinspector_suite.test", "folder_id",
@@ -76,15 +79,18 @@ func TestAccSuite_basic(t *testing.T) {
 			},
 			{
 				// Update settings in place
-				Config: testAccSuiteConfig(folder, suite, `"firefox"`, `20000`),
+				Config: testAccSuiteConfig(folder, suite, `"firefox"`, `20000`, `2`, ".content", ".ad-banner, .carousel"),
 				Check: resource.ComposeAggregateTestCheckFunc(
 					resource.TestCheckResourceAttr("ghostinspector_suite.test", "browser", "firefox"),
 					resource.TestCheckResourceAttr("ghostinspector_suite.test", "max_wait_delay", "20000"),
+					resource.TestCheckResourceAttr("ghostinspector_suite.test", "max_concurrent_tests", "2"),
+					resource.TestCheckResourceAttr("ghostinspector_suite.test", "screenshot_target", ".content"),
+					resource.TestCheckResourceAttr("ghostinspector_suite.test", "screenshot_exclusions", ".ad-banner, .carousel"),
 				),
 			},
 			{
 				// Re-applying the same config produces an empty plan
-				Config:             testAccSuiteConfig(folder, suite, `"firefox"`, `20000`),
+				Config:             testAccSuiteConfig(folder, suite, `"firefox"`, `20000`, `2`, ".content", ".ad-banner, .carousel"),
 				PlanOnly:           true,
 				ExpectNonEmptyPlan: false,
 			},
@@ -97,7 +103,7 @@ func TestAccSuite_basic(t *testing.T) {
 	})
 }
 
-func testAccSuiteConfig(folder, suite, browser, maxWait string) string {
+func testAccSuiteConfig(folder, suite, browser, maxWait, maxConcurrent, screenshotTarget, screenshotExclusions string) string {
 	return fmt.Sprintf(`
 terraform {
   required_providers {
@@ -118,8 +124,11 @@ resource "ghostinspector_suite" "test" {
   folder_id    = ghostinspector_folder.test.id
   browser      = %[3]s
   max_wait_delay = %[4]s
+  max_concurrent_tests = %[5]s
+  screenshot_target = %[6]q
+  screenshot_exclusions = %[7]q
 }
-`, folder, suite, browser, maxWait)
+`, folder, suite, browser, maxWait, maxConcurrent, screenshotTarget, screenshotExclusions)
 }
 
 func TestAccSuiteVariables_privateMasking(t *testing.T) {
@@ -269,6 +278,8 @@ func TestAccTest_adoptReplaceAndCascade(t *testing.T) {
 				// parent's execute step must be rewired to the new ID by the graph.
 				Config: testAccModuleAndParentConfig(folder, suite, module, parent, "Goodbye"),
 				Check: resource.ComposeAggregateTestCheckFunc(
+					// Configured settings ride the export -> re-import overlay.
+					resource.TestCheckResourceAttr("ghostinspector_test.module", "screenshot_target", ".gi-acc-target"),
 					func(s *terraform.State) error {
 						rs := s.RootModule().Resources["ghostinspector_test.module"]
 						newID := rs.Primary.ID
@@ -373,6 +384,7 @@ resource "ghostinspector_test" "module" {
   name       = %[3]q
   import_only = true
   final_delay = %[6]s
+  screenshot_target = ".gi-acc-target"
 
   steps = [
     {
