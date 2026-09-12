@@ -8,9 +8,11 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/objectplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/udx/terraform-provider-ghostinspector/internal/gi"
@@ -37,12 +39,13 @@ type scheduleModel struct {
 
 // SuiteResourceModel is the state model.
 type SuiteResourceModel struct {
-	ID          types.String `tfsdk:"id"`
-	SuiteID     types.String `tfsdk:"suite_id"`
-	Name        types.String `tfsdk:"name"`
-	FolderID    types.String `tfsdk:"folder_id"`
-	Description types.String `tfsdk:"description"`
-	Schedule    types.Object `tfsdk:"schedule"`
+	ID                 types.String `tfsdk:"id"`
+	SuiteID            types.String `tfsdk:"suite_id"`
+	Name               types.String `tfsdk:"name"`
+	FolderID           types.String `tfsdk:"folder_id"`
+	Description        types.String `tfsdk:"description"`
+	Schedule           types.Object `tfsdk:"schedule"`
+	MaxConcurrentTests types.Int64  `tfsdk:"max_concurrent_tests"`
 	settingsModel
 }
 
@@ -106,6 +109,12 @@ func (r *SuiteResource) Schema(_ context.Context, _ resource.SchemaRequest, resp
 					},
 				},
 			},
+			"max_concurrent_tests": schema.Int64Attribute{
+				Optional: true, Computed: true,
+				Description:   "Maximum number of tests from this suite that run in parallel (0 is unlimited). Null leaves the API value unmanaged. Must be zero or greater.",
+				PlanModifiers: []planmodifier.Int64{int64planmodifier.UseStateForUnknown()},
+				Validators:    []validator.Int64{nonNegativeInt64()},
+			},
 		}),
 	}
 }
@@ -148,6 +157,17 @@ func stringOrNull(s string) types.String {
 	return types.StringValue(s)
 }
 
+// strPtrOrNull maps a string pointer verbatim, preserving empty strings. The
+// Ghost Inspector API stores an empty screenshot selector as an explicit
+// clear (whole-page capture), distinct from an absent key, so "" must
+// round-trip rather than collapse to null.
+func strPtrOrNull(s *string) types.String {
+	if s == nil {
+		return types.StringNull()
+	}
+	return types.StringValue(*s)
+}
+
 func (m *SuiteResourceModel) fromAPI(s *gi.Suite) {
 	m.ID = types.StringValue(s.ID)
 	m.Name = types.StringValue(s.Name)
@@ -176,7 +196,10 @@ func (m *SuiteResourceModel) fromAPI(s *gi.Suite) {
 	m.AutoRetry = boolOrNull(s.AutoRetry)
 	m.ScreenshotCompareEnabled = boolOrNull(s.ScreenshotCompareEnabled)
 	m.ScreenshotCompareThreshold = floatOrNull(s.ScreenshotCompareThreshold)
+	m.ScreenshotTarget = strPtrOrNull(s.ScreenshotTarget)
+	m.ScreenshotExclusions = strPtrOrNull(s.ScreenshotExclusions)
 	m.FailOnJavaScriptError = boolOrNull(s.FailOnJavaScriptError)
+	m.MaxConcurrentTests = intOrNull(s.MaxConcurrentTests)
 	// The suite update API silently discards schedule, so it never comes back
 	// on read. Keep the configured value in state (write-only).
 	if s.Schedule != nil {
@@ -331,6 +354,9 @@ func (r *SuiteResource) Create(ctx context.Context, req resource.CreateRequest, 
 func (r *SuiteResource) pushSettings(ctx context.Context, id string, plan *SuiteResourceModel) error {
 	fields := plan.settingsModel.apiFields()
 	fields["name"] = plan.Name.ValueString()
+	if !plan.MaxConcurrentTests.IsNull() && !plan.MaxConcurrentTests.IsUnknown() {
+		fields["maxConcurrentTests"] = plan.MaxConcurrentTests.ValueInt64()
+	}
 	if !plan.Description.IsNull() && !plan.Description.IsUnknown() {
 		fields["description"] = plan.Description.ValueString()
 	}

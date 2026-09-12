@@ -41,7 +41,10 @@ type Suite struct {
 	AutoRetry                  *bool                  `json:"autoRetry,omitempty"`
 	ScreenshotCompareEnabled   *bool                  `json:"screenshotCompareEnabled,omitempty"`
 	ScreenshotCompareThreshold *float64               `json:"screenshotCompareThreshold,omitempty"`
+	ScreenshotTarget           *string                `json:"screenshotTarget,omitempty"`
+	ScreenshotExclusions       *string                `json:"screenshotExclusions,omitempty"`
 	FailOnJavaScriptError      *bool                  `json:"failOnJavaScriptError,omitempty"`
+	MaxConcurrentTests         *int64                 `json:"maxConcurrentTests,omitempty"`
 	Schedule                   *Schedule              `json:"schedule,omitempty"`
 	Variables                  []Variable             `json:"variables,omitempty"`
 	Extra                      map[string]interface{} `json:"-"`
@@ -65,6 +68,8 @@ type Test struct {
 	AutoRetry                  *bool                    `json:"autoRetry,omitempty"`
 	ScreenshotCompareEnabled   *bool                    `json:"screenshotCompareEnabled,omitempty"`
 	ScreenshotCompareThreshold *float64                 `json:"screenshotCompareThreshold,omitempty"`
+	ScreenshotTarget           *string                  `json:"screenshotTarget,omitempty"`
+	ScreenshotExclusions       *string                  `json:"screenshotExclusions,omitempty"`
 	FailOnJavaScriptError      *bool                    `json:"failOnJavaScriptError,omitempty"`
 	ImportOnly                 *bool                    `json:"importOnly,omitempty"`
 	Steps                      []map[string]interface{} `json:"steps,omitempty"`
