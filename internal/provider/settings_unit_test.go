@@ -1,8 +1,12 @@
 package provider
 
 import (
+	"context"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-framework/path"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/udx/terraform-provider-ghostinspector/internal/gi"
 )
@@ -157,5 +161,46 @@ func TestTestFromAPI_screenshotFields(t *testing.T) {
 	m.fromAPI(&gi.Test{ID: "t1", Name: "test"})
 	if !m.ScreenshotTarget.IsNull() {
 		t.Fatalf("absent screenshotTarget should resolve to null, got %v", m.ScreenshotTarget)
+	}
+}
+
+// An empty screenshot selector is rejected at plan time: the API treats empty
+// and absent identically, so posting "" would come back as null and fail
+// apply with "inconsistent result after apply". (Collapsing "" to null in a
+// plan modifier is not possible - core rejects a planned value that differs
+// from a configured one; verified against both terraform and tofu.)
+func TestSettingsAttributes_screenshotRejectEmpty(t *testing.T) {
+	attrs := settingsAttributes()
+	for _, name := range []string{"screenshot_target", "screenshot_exclusions"} {
+		attr, ok := attrs[name].(schema.StringAttribute)
+		if !ok {
+			t.Fatalf("%s is not a StringAttribute", name)
+		}
+		if len(attr.Validators) == 0 {
+			t.Fatalf("%s has no validators; an empty string would break apply", name)
+		}
+
+		var emptyDiags, valueDiags int
+		for _, v := range attr.Validators {
+			empty := &validator.StringResponse{}
+			v.ValidateString(context.Background(), validator.StringRequest{
+				Path:        path.Root(name),
+				ConfigValue: types.StringValue(""),
+			}, empty)
+			emptyDiags += empty.Diagnostics.ErrorsCount()
+
+			set := &validator.StringResponse{}
+			v.ValidateString(context.Background(), validator.StringRequest{
+				Path:        path.Root(name),
+				ConfigValue: types.StringValue(".hero"),
+			}, set)
+			valueDiags += set.Diagnostics.ErrorsCount()
+		}
+		if emptyDiags == 0 {
+			t.Fatalf("%s: empty string should fail validation", name)
+		}
+		if valueDiags != 0 {
+			t.Fatalf("%s: non-empty selector should pass validation", name)
+		}
 	}
 }

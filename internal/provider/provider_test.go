@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -61,6 +62,13 @@ func TestAccSuite_basic(t *testing.T) {
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		CheckDestroy:             testAccCheckSuitesDestroyed,
 		Steps: []resource.TestStep{
+			{
+				// Empty screenshot selectors are rejected at plan time: the API
+				// treats empty and absent identically, so posting "" would read
+				// back as null and fail with an inconsistent result.
+				Config:      testAccSuiteConfig(folder, suite, `"chrome"`, `15000`, `1`, "", ""),
+				ExpectError: regexp.MustCompile(`Empty string not allowed`),
+			},
 			{
 				Config: testAccSuiteConfig(folder, suite, `"chrome"`, `15000`, `1`, ".hero", ".ad-banner"),
 				Check: resource.ComposeAggregateTestCheckFunc(
