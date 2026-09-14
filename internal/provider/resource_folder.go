@@ -7,6 +7,8 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/udx/terraform-provider-ghostinspector/internal/gi"
 )
@@ -43,6 +45,9 @@ func (r *FolderResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"id": schema.StringAttribute{
 				Computed:    true,
 				Description: "Ghost Inspector folder ID.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 			"name": schema.StringAttribute{
 				Required:    true,
@@ -51,6 +56,9 @@ func (r *FolderResource) Schema(_ context.Context, _ resource.SchemaRequest, res
 			"organization": schema.StringAttribute{
 				Optional: true, Computed: true,
 				Description: "Organization that owns the folder. When null, creation tries the organizations visible to the API key until one accepts the write. Keys scoped to a single organization should set this explicitly.",
+				PlanModifiers: []planmodifier.String{
+					stringplanmodifier.UseStateForUnknown(),
+				},
 			},
 		},
 	}
@@ -169,11 +177,24 @@ func (r *FolderResource) Update(ctx context.Context, req resource.UpdateRequest,
 		return
 	}
 
-	err := r.client.UpdateFolder(ctx, plan.ID.ValueString(), plan.Name.ValueString())
+	// The API path needs the persisted ID; plan values for computed
+	// attributes can be unknown during an update, so prefer state.
+	id := plan.ID.ValueString()
+	var state FolderResourceModel
+	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
+	if resp.Diagnostics.HasError() {
+		return
+	}
+	if state.ID.ValueString() != "" {
+		id = state.ID.ValueString()
+	}
+
+	err := r.client.UpdateFolder(ctx, id, plan.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("Folder rename failed", err.Error())
 		return
 	}
+	plan.ID = types.StringValue(id)
 	resp.Diagnostics.Append(resp.State.Set(ctx, &plan)...)
 }
 

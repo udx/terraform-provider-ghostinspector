@@ -511,3 +511,67 @@ resource "ghostinspector_suite" "adopted" {
 }
 `, folder, suite)
 }
+
+func TestAccFolder_rename(t *testing.T) {
+	name := uniqueName("tf-acc-folder")
+	renamed := name + "-renamed"
+	var folderID string
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:                 func() { testAccPreCheck(t) },
+		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccFolderConfig(name),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("ghostinspector_folder.test", "name", name),
+					resource.TestCheckResourceAttrSet("ghostinspector_folder.test", "id"),
+					func(s *terraform.State) error {
+						rs, ok := s.RootModule().Resources["ghostinspector_folder.test"]
+						if !ok {
+							return fmt.Errorf("folder resource missing from state")
+						}
+						folderID = rs.Primary.ID
+						return nil
+					},
+				),
+			},
+			{
+				// Regression: an update must hit /folders/<id>/ with the state ID;
+				// the plan value for id is unknown without UseStateForUnknown.
+				Config: testAccFolderConfig(renamed),
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("ghostinspector_folder.test", "name", renamed),
+					func(s *terraform.State) error {
+						rs, ok := s.RootModule().Resources["ghostinspector_folder.test"]
+						if !ok {
+							return fmt.Errorf("folder resource missing from state")
+						}
+						if rs.Primary.ID != folderID {
+							return fmt.Errorf("folder ID changed on rename: %s -> %s", folderID, rs.Primary.ID)
+						}
+						return nil
+					},
+				),
+			},
+		},
+	})
+}
+
+func testAccFolderConfig(name string) string {
+	return fmt.Sprintf(`
+terraform {
+  required_providers {
+    ghostinspector = {
+      source = "udx/ghostinspector"
+    }
+  }
+}
+
+provider "ghostinspector" {}
+
+resource "ghostinspector_folder" "test" {
+  name = %q
+}
+`, name)
+}
